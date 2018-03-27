@@ -12,85 +12,63 @@ from __future__ import print_function
 
 import argparse
 import logging
-import random
 import time
 
 from carla.client import make_carla_client
-from carla.sensor import Camera, Lidar
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
-from carla.util import print_over_same_line
+from carla.planner.map import CarlaMap
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.patches import Circle
 
+
 def view_start_positions(args):
-
-
-
     # We assume the CARLA server is already waiting for a client to connect at
     # host:port. The same way as in the client example
     with make_carla_client(args.host, args.port) as client:
         print('CarlaClient connected')
 
-
-
-
-
-
         # We load the default settings to the client.
         scene = client.load_settings(CarlaSettings())
-        print ("Receives the Start Position")
+        print("Receives the Start Position")
 
-
-
-        # Notify the server that we want to start the episode at the
-        # player_start index. This function blocks until the server is ready
-        # to start the episode.
-
-        from carla.planner.map import CarlaMap
-
+        # We get the number of player starts, in order to detect the city.
         number_of_player_starts = len(scene.player_start_spots)
-        if number_of_player_starts > 100:
-
+        if number_of_player_starts > 100:  # WARNING: unsafe way to check for city, see issue #313
             image = mpimg.imread("carla/planner/Town01.png")
-            carla_map = CarlaMap('Town01', 0.1653, 50)
+            carla_map = CarlaMap('Town01', 16.53, 50)
 
         else:
 
             image = mpimg.imread("carla/planner/Town02.png")
-            carla_map = CarlaMap('Town02', 0.1653, 50)
+            carla_map = CarlaMap('Town02', 16.53, 50)
 
         fig, ax = plt.subplots(1)
 
         ax.imshow(image)
 
-
         if args.positions == 'all':
-
             positions_to_plot = range(len(scene.player_start_spots))
-
         else:
-
             positions_to_plot = map(int, args.positions.split(','))
 
-
-
         for position in positions_to_plot:
-            pixel = carla_map.convert_to_pixel([scene.player_start_spots[position].location.x
-                                               , scene.player_start_spots[position].location.y
-                                               , scene.player_start_spots[position].location.z])
-            circle = Circle((pixel[0]
-                             , pixel[1])
-                            , 12, color='r')
+            # Check if position is valid
+            if position >= len(scene.player_start_spots):
+                raise RuntimeError('Position selected is invalid')
 
+            # Convert world to pixel coordinates
+            pixel = carla_map.convert_to_pixel([scene.player_start_spots[position].location.x
+                                                   , scene.player_start_spots[position].location.y
+                                                   , scene.player_start_spots[position].location.z])
+            circle = Circle((pixel[0]
+                            , pixel[1])
+                            , 12, color='r')
             ax.add_patch(circle)
 
         plt.show()
-
-
-
 
 
 def main():
@@ -115,10 +93,8 @@ def main():
         '-pos', '--positions',
         metavar='P',
         default='all',
-        help=' The positions that you want to plot on the map')
-
-
-
+        help=' The positions that you want to plot on the map. '
+             'The positions must be separated by commas (default = all positions)')
 
     args = argparser.parse_args()
 
@@ -131,7 +107,6 @@ def main():
         try:
 
             view_start_positions(args)
-
             print('Done.')
             return
 
@@ -140,6 +115,10 @@ def main():
             traceback.print_exc()
             logging.error(error)
             time.sleep(1)
+        except RuntimeError as error:
+            logging.error(error)
+            time.sleep(1)
+            break
 
 
 if __name__ == '__main__':
@@ -148,5 +127,6 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         import traceback
+
         traceback.print_exc()
         print('\nCancelled by user. Bye!')
