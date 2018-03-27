@@ -45,7 +45,7 @@ def view_start_positions(args):
             image = mpimg.imread("carla/planner/Town02.png")
             carla_map = CarlaMap('Town02', 16.53, 50)
 
-        fig, ax = plt.subplots(1)
+        _, ax = plt.subplots(1)
 
         ax.imshow(image)
 
@@ -111,8 +111,6 @@ def main():
             return
 
         except TCPConnectionError as error:
-            import traceback
-            traceback.print_exc()
             logging.error(error)
             time.sleep(1)
         except RuntimeError as error:
